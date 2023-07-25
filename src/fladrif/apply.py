@@ -78,34 +78,39 @@ class Apply(Generic[N]):
                 case Tag.REPLACE:
                     assert op.sub is None
                     for before, after in self._kids(op, stack):
-                        assert before is not None
-                        assert after is not None
-                        self.replace(before, after)
+                        if before is not None and after is not None:
+                            self.replace(before, after)
+                        elif before is not None:
+                            self.delete(before)
+                        elif after is not None:
+                            self.insert(after)
+                        else:
+                            assert False, f"op: {op}"
                 case Tag.DELETE:
                     assert op.sub is None
                     for before, after in self._kids(op, stack):
-                        assert before is not None
-                        assert after is None
+                        assert before is not None, f"op: {op}"
+                        assert after is None, f"op: {op}"
                         self.delete(before)
                 case Tag.INSERT:
                     assert op.sub is None
                     for before, after in self._kids(op, stack):
-                        assert before is None
-                        assert after is not None
+                        assert before is None, f"op: {op}"
+                        assert after is not None, f"op: {op}"
                         self.insert(after)
                 case Tag.EQUAL:
                     assert op.sub is None
                     for before, after in self._kids(op, stack):
-                        assert before is not None
-                        assert after is not None
+                        assert before is not None, f"op: {op}"
+                        assert after is not None, f"op: {op}"
                         self.equal(before, after)
                 case Tag.DESCEND:
                     kids = list(self._kids(op, stack))
                     assert 1 == len(kids)
                     before, after = kids[0]
-                    assert before is not None
-                    assert after is not None
-                    assert op.sub is not None
+                    assert before is not None, f"op: {op}"
+                    assert after is not None, f"op: {op}"
+                    assert op.sub is not None, f"op: {op}"
                     stack.append(
                         _Level(
                             before=self.adapter.children(before),

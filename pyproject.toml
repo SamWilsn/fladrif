@@ -19,7 +19,7 @@ pythonpath = [ "src" ]
 
 [tool.poetry]
 name = "fladrif"
-version = "0.1.0"
+version = "0.1.1"
 description = "Compute a series of operations to transform one tree into another"
 authors = ["Sam Wilson <sam@binarycake.ca>"]
 license = "GPL-2.0-or-later"
