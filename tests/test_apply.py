@@ -16,20 +16,20 @@
 # 02111-1307, USA.
 
 from dataclasses import dataclass, field
-from typing import Final, Iterable, List, Optional, TypeAlias, Union
+from typing import Final, Iterable, List, Sequence, TypeAlias, Union
 
 from helpers.tree import MockAdapter
 from helpers.tree import MockNode as N
 
 from fladrif import apply
 from fladrif.treediff import Operation as Op
-from fladrif.treediff import Tag, TreeMatcher
+from fladrif.treediff import TreeMatcher
 
 
 @dataclass
 class DiffNode:
-    before: Optional[N]
-    after: Optional[N]
+    before: Sequence[N]
+    after: Sequence[N]
 
 
 @dataclass
@@ -64,25 +64,26 @@ class Apply(apply.Apply[N]):
         finally:
             self.stack.clear()
 
-    def replace(self, before: N, after: N) -> None:
+    def replace(self, before: Sequence[N], after: Sequence[N]) -> None:
         parent = self.stack[-1]
         assert isinstance(parent, SameNode)
         parent.add(DiffNode(before=before, after=after))
 
-    def delete(self, before: N) -> None:
+    def delete(self, before: Sequence[N]) -> None:
         parent = self.stack[-1]
         assert isinstance(parent, SameNode)
-        parent.add(DiffNode(before=before, after=None))
+        parent.add(DiffNode(before=before, after=tuple()))
 
-    def insert(self, after: N) -> None:
+    def insert(self, after: Sequence[N]) -> None:
         parent = self.stack[-1]
         assert isinstance(parent, SameNode)
-        parent.add(DiffNode(before=None, after=after))
+        parent.add(DiffNode(before=tuple(), after=after))
 
-    def equal(self, before: N, after: N) -> None:
+    def equal(self, before: Sequence[N], after: Sequence[N]) -> None:
         parent = self.stack[-1]
         assert isinstance(parent, SameNode)
-        parent.add(after)
+        for x in after:
+            parent.add(x)
 
     def descend(self, before: N, after: N) -> None:
         parent = self.stack[-1]
@@ -143,13 +144,15 @@ def test_single_node_different() -> None:
     actual = applier.output()
     assert isinstance(actual, DiffNode)
 
-    assert isinstance(actual.before, (SameNode, N))
-    assert actual.before.internal == 1
-    assert not actual.before.children
+    assert len(actual.before) == 1
+    assert isinstance(actual.before[0], (SameNode, N))
+    assert actual.before[0].internal == 1
+    assert not actual.before[0].children
 
-    assert isinstance(actual.after, (SameNode, N))
-    assert actual.after.internal == 2
-    assert not actual.after.children
+    assert len(actual.after) == 1
+    assert isinstance(actual.after[0], (SameNode, N))
+    assert actual.after[0].internal == 2
+    assert not actual.after[0].children
 
 
 def test_one_child_node_equal() -> None:
@@ -186,20 +189,22 @@ def test_one_child_node_different_root() -> None:
     actual = applier.output()
     assert isinstance(actual, DiffNode)
 
-    assert isinstance(actual.before, (SameNode, N))
-    assert actual.before.internal == 1
-    assert 1 == len(actual.before.children)
+    assert len(actual.before) == 1
+    assert isinstance(actual.before[0], (SameNode, N))
+    assert actual.before[0].internal == 1
+    assert 1 == len(actual.before[0].children)
 
-    child = actual.before.children[0]
+    child = actual.before[0].children[0]
     assert isinstance(child, (SameNode, N))
     assert 2 == child.internal
     assert 0 == len(child.children)
 
-    assert isinstance(actual.after, (SameNode, N))
-    assert actual.after.internal == 3
-    assert 1 == len(actual.after.children)
+    assert len(actual.after) == 1
+    assert isinstance(actual.after[0], (SameNode, N))
+    assert actual.after[0].internal == 3
+    assert 1 == len(actual.after[0].children)
 
-    child = actual.after.children[0]
+    child = actual.after[0].children[0]
     assert isinstance(child, (SameNode, N))
     assert 2 == child.internal
     assert 0 == len(child.children)
@@ -223,13 +228,15 @@ def test_one_child_node_different_child() -> None:
     child = actual.children[0]
     assert isinstance(child, DiffNode)
 
-    assert isinstance(child.before, (SameNode, N))
-    assert child.before.internal == 2
-    assert not child.before.children
+    assert len(child.before) == 1
+    assert isinstance(child.before[0], (SameNode, N))
+    assert child.before[0].internal == 2
+    assert not child.before[0].children
 
-    assert isinstance(child.after, (SameNode, N))
-    assert child.after.internal == 3
-    assert not child.after.children
+    assert len(child.after) == 1
+    assert isinstance(child.after[0], (SameNode, N))
+    assert child.after[0].internal == 3
+    assert not child.after[0].children
 
 
 def test_structure() -> None:
@@ -254,14 +261,16 @@ def test_structure() -> None:
 
     grandchild = child.children[0]
     assert isinstance(grandchild, DiffNode)
-    assert grandchild.after is None
-    assert isinstance(grandchild.before, (SameNode, N))
-    assert 3 == grandchild.before.internal
-    assert 0 == len(grandchild.before.children)
+    assert len(grandchild.after) == 0
+    assert len(grandchild.before) == 1
+    assert isinstance(grandchild.before[0], (SameNode, N))
+    assert 3 == grandchild.before[0].internal
+    assert 0 == len(grandchild.before[0].children)
 
     child = actual.children[1]
     assert isinstance(child, DiffNode)
-    assert child.before is None
-    assert isinstance(child.after, (SameNode, N))
-    assert 3 == child.after.internal
-    assert not child.after.children
+    assert len(child.before) == 0
+    assert len(child.after) == 1
+    assert isinstance(child.after[0], (SameNode, N))
+    assert 3 == child.after[0].internal
+    assert not child.after[0].children

@@ -47,9 +47,10 @@ class Apply(Generic[N]):
         self,
         op: Operation,
         stack: Sequence[_Level[N]],
-    ) -> Iterable[Tuple[Optional[N], Optional[N]]]:
-        return zip_longest(
-            stack[-1].before[op.i1 : op.i2], stack[-1].after[op.j1 : op.j2]
+    ) -> Tuple[Sequence[N], Sequence[N]]:
+        return (
+            stack[-1].before[op.i1 : op.i2],
+            stack[-1].after[op.j1 : op.j2],
         )
 
     def apply(self, operations: Iterable[Operation]) -> None:
@@ -74,62 +75,50 @@ class Apply(Generic[N]):
 
                 continue
 
+            before, after = self._kids(op, stack)
+
             match op.tag:
                 case Tag.REPLACE:
                     assert op.sub is None
-                    for before, after in self._kids(op, stack):
-                        if before is not None and after is not None:
-                            self.replace(before, after)
-                        elif before is not None:
-                            self.delete(before)
-                        elif after is not None:
-                            self.insert(after)
-                        else:
-                            assert False, f"op: {op}"
+                    self.replace(before, after)
                 case Tag.DELETE:
                     assert op.sub is None
-                    for before, after in self._kids(op, stack):
-                        assert before is not None, f"op: {op}"
-                        assert after is None, f"op: {op}"
-                        self.delete(before)
+                    assert len(after) == 0, f"op: {op}"
+                    assert len(before) > 0, f"op: {op}"
+                    self.delete(before)
                 case Tag.INSERT:
                     assert op.sub is None
-                    for before, after in self._kids(op, stack):
-                        assert before is None, f"op: {op}"
-                        assert after is not None, f"op: {op}"
-                        self.insert(after)
+                    assert len(before) == 0, f"op: {op}"
+                    assert len(after) > 0, f"op: {op}"
+                    self.insert(after)
                 case Tag.EQUAL:
                     assert op.sub is None
-                    for before, after in self._kids(op, stack):
-                        assert before is not None, f"op: {op}"
-                        assert after is not None, f"op: {op}"
-                        self.equal(before, after)
+                    assert len(before) > 0, f"op: {op}"
+                    assert len(after) > 0, f"op: {op}"
+                    self.equal(before, after)
                 case Tag.DESCEND:
-                    kids = list(self._kids(op, stack))
-                    assert 1 == len(kids)
-                    before, after = kids[0]
-                    assert before is not None, f"op: {op}"
-                    assert after is not None, f"op: {op}"
+                    assert 1 == len(before)
+                    assert 1 == len(after)
                     assert op.sub is not None, f"op: {op}"
                     stack.append(
                         _Level(
-                            before=self.adapter.children(before),
-                            after=self.adapter.children(after),
+                            before=self.adapter.children(before[0]),
+                            after=self.adapter.children(after[0]),
                             operations=iter(op.sub),
                         )
                     )
-                    self.descend(before, after)
+                    self.descend(before[0], after[0])
 
-    def replace(self, before: N, after: N) -> None:
+    def replace(self, before: Sequence[N], after: Sequence[N]) -> None:
         pass
 
-    def delete(self, before: N) -> None:
+    def delete(self, before: Sequence[N]) -> None:
         pass
 
-    def insert(self, after: N) -> None:
+    def insert(self, after: Sequence[N]) -> None:
         pass
 
-    def equal(self, before: N, after: N) -> None:
+    def equal(self, before: Sequence[N], after: Sequence[N]) -> None:
         pass
 
     def descend(self, before: N, after: N) -> None:
